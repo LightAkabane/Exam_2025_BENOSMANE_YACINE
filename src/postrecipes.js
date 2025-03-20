@@ -1,5 +1,5 @@
 // postrecipes.js
-import fetch from 'node-fetch'; // Utilisez fetch natif si Node 18+ est disponible
+// Plus besoin d'importer node-fetch avec Node 18+
 import { recipesStore } from './recipes.js';
 
 let nextRecipeId = 1;

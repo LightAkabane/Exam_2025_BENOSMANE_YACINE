@@ -1,5 +1,4 @@
 // removerecipes.js
-import fetch from 'node-fetch'; // Utilisez fetch natif si Node 18+ est disponible
 import { recipesStore } from './recipes.js';
 
 export async function removerecipes(request, reply) {

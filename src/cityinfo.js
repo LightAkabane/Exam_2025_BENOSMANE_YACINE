@@ -1,6 +1,6 @@
 // cityinfo.js
-import fetch from 'node-fetch'; // Si vous êtes sur Node <18, sinon utilisez la global fetch
-import { recipesStore } from './recipes.js'; // Ce module doit exporter un objet mutable pour stocker les recettes
+// Plus besoin d'importer node-fetch avec Node 18+
+import { recipesStore } from './recipes.js'; // Ce module exporte un objet mutable pour stocker les recettes
 
 export async function cityinfo(request, reply) {
   // Récupération du paramètre cityId depuis l'URL
