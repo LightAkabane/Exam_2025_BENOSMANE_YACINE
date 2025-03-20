@@ -1,11 +1,16 @@
 import 'dotenv/config'
 import Fastify from 'fastify'
 import { submitForReview } from './submission.js'
-
+import { cityinfo } from "./cityinfo.js";
+import { postrecipes } from "./postrecipes.js";
+import { removerecipes } from "./removerecipes.js";
 const fastify = Fastify({
   logger: true,
 })
 
+fastify.get("/cities/:cityId/infos", cityinfo);
+fastify.post("/cities/:cityId/recipes", postrecipes);
+fastify.delete("/cities/:cityId/recipes/:recipeId", removerecipes);
 fastify.listen(
   {
     port: process.env.PORT || 3000,
