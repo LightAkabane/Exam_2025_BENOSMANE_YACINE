@@ -2,73 +2,66 @@
 import { recipesStore } from './recipes.js';
 
 export async function cityinfo(request, reply) {
-  const { cityId } = request.params;
-  const apiKey = process.env.API_KEY;
-
   try {
-    // 1. Récupération des insights de la ville (population, knownFor, coordinates)
-    const insightsUrl = `https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/insights?apiKey=${apiKey}`;
-    const insightsResponse = await fetch(insightsUrl);
-    if (!insightsResponse.ok) {
-      reply.code(insightsResponse.status);
-      return await insightsResponse.json();
-    }
-    const insights = await insightsResponse.json();
+    const { cityId } = request.params;
+    const apiKey = process.env.API_KEY;
 
-    // 2. Récupération des prévisions météo
-    const weatherUrl = `https://api-ugi2pflmha-ew.a.run.app/weather-predictions?cityId=${cityId}&apiKey=${apiKey}`;
-    const weatherResponse = await fetch(weatherUrl);
+    // 1) Récupérer les infos de la ville via /cities/:cityId/insights
+    const cityResponse = await fetch(
+      `https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/insights?apiKey=${apiKey}`
+    );
+    if (!cityResponse.ok) {
+      return reply
+        .status(404)
+        .send({ error: `City with id "${cityId}" not found` });
+    }
+    const cityData = await cityResponse.json();
+    // cityData devrait contenir : { coordinates: { latitude, longitude }, population, knownFor }
+
+    // 2) Récupérer la météo via /weather-predictions
+    const weatherResponse = await fetch(
+      `https://api-ugi2pflmha-ew.a.run.app/weather-predictions?cityId=${cityId}&apiKey=${apiKey}`
+    );
     if (!weatherResponse.ok) {
-      reply.code(weatherResponse.status);
-      return await weatherResponse.json();
+      return reply
+        .status(500)
+        .send({ error: `Failed to fetch weather for city "${cityId}"` });
     }
-    const weatherDataArray = await weatherResponse.json();
-    let weatherPredictions = [
-      { when: 'today', min: null, max: null },
-      { when: 'tomorrow', min: null, max: null }
-    ];
-    if (weatherDataArray.length > 0 && weatherDataArray[0].predictions) {
-      const predictions = weatherDataArray[0].predictions;
-      const today = predictions.find(p => p.when === 'today');
-      const tomorrow = predictions.find(p => p.when === 'tomorrow');
-      weatherPredictions = [
-        { when: 'today', min: today ? today.min : null, max: today ? today.max : null },
-        { when: 'tomorrow', min: tomorrow ? tomorrow.min : null, max: tomorrow ? tomorrow.max : null }
-      ];
+    const weatherData = await weatherResponse.json();
+    // weatherData est supposé être un tableau, généralement avec weatherData[0] contenant l'objet recherché
+    const cityWeather = weatherData[0];
+    if (
+      !cityWeather ||
+      !cityWeather.predictions ||
+      cityWeather.predictions.length < 2
+    ) {
+      return reply
+        .status(500)
+        .send({ error: `Weather data format invalid for city "${cityId}"` });
     }
+    // On suppose que l'ordre des prédictions est "today" puis "tomorrow"
+    const [today, tomorrow] = cityWeather.predictions;
 
-    // 3. Récupération des détails de la ville via l'endpoint GET /cities
-    const citiesUrl = `https://api-ugi2pflmha-ew.a.run.app/cities?apiKey=${apiKey}`;
-    const citiesResponse = await fetch(citiesUrl);
-    if (!citiesResponse.ok) {
-      reply.code(citiesResponse.status);
-      return await citiesResponse.json();
-    }
-    const citiesData = await citiesResponse.json();
-    const cityDetails = citiesData.find(city => city.id === cityId);
-    if (!cityDetails) {
-      reply.code(404);
-      return { success: false, error: "City with ID " + cityId + " not found" };
-    }
-
-    // 4. Récupération des recettes associées à la ville depuis le store (vide par défaut)
-    const recipes = recipesStore[cityId] || [];
-
-    // Assemblage de la réponse finale dans le format attendu :
-    // - coordinates en tant que tableau [latitude, longitude]
-    // - weatherPredictions contenant exactement 2 objets
-    return {
-      id: cityDetails.id,
-      name: cityDetails.name,
-      country: cityDetails.country,
-      population: insights.population,
-      knownFor: insights.knownFor,
-      coordinates: [insights.coordinates.latitude, insights.coordinates.longitude],
-      weatherPredictions,
-      recipes
+    // 3) Construire la réponse attendue
+    const responsePayload = {
+      // Transformation des coordonnées en tableau [latitude, longitude]
+      coordinates: [
+        cityData.coordinates.latitude,
+        cityData.coordinates.longitude,
+      ],
+      population: cityData.population,
+      knownFor: cityData.knownFor,
+      weatherPredictions: [
+        { when: 'today', min: today.min, max: today.max },
+        { when: 'tomorrow', min: tomorrow.min, max: tomorrow.max },
+      ],
+      // On renvoie les recettes associées à la ville (vide par défaut)
+      recipes: recipesStore[cityId] || [],
     };
+
+    return reply.send(responsePayload);
   } catch (error) {
-    reply.code(500);
-    return { success: false, error: error.message };
+    console.error(error);
+    return reply.status(500).send({ error: error.message });
   }
 }
