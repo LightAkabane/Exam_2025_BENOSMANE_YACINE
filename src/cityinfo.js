@@ -15,7 +15,7 @@ export async function cityinfo(request, reply) {
     }
     const insights = await insightsResponse.json();
 
-    // 2. Récupération des prévisions météo
+    // 2. Récupération des prévisions météo et garantie de 2 objets ("today" et "tomorrow")
     const weatherUrl = `https://api-ugi2pflmha-ew.a.run.app/weather-predictions?cityId=${cityId}&apiKey=${apiKey}`;
     const weatherResponse = await fetch(weatherUrl);
     if (!weatherResponse.ok) {
@@ -26,13 +26,26 @@ export async function cityinfo(request, reply) {
     let weather = [];
     if (weatherDataArray.length > 0 && weatherDataArray[0].predictions) {
       const predictions = weatherDataArray[0].predictions;
-      const today = predictions.find(p => p.when === 'today');
-      const tomorrow = predictions.find(p => p.when === 'tomorrow');
-      if (today) weather.push({ when: 'today', min: today.min, max: today.max });
-      if (tomorrow) weather.push({ when: 'tomorrow', min: tomorrow.min, max: tomorrow.max });
+      // On recherche les prédictions pour "today" et "tomorrow"
+      const todayPrediction = predictions.find(p => p.when === 'today');
+      const tomorrowPrediction = predictions.find(p => p.when === 'tomorrow');
+      weather.push({
+        when: 'today',
+        min: todayPrediction ? todayPrediction.min : null,
+        max: todayPrediction ? todayPrediction.max : null
+      });
+      weather.push({
+        when: 'tomorrow',
+        min: tomorrowPrediction ? tomorrowPrediction.min : null,
+        max: tomorrowPrediction ? tomorrowPrediction.max : null
+      });
+    } else {
+      // Si aucune donnée météo n'est retournée, on renvoie des objets avec des valeurs null
+      weather.push({ when: 'today', min: null, max: null });
+      weather.push({ when: 'tomorrow', min: null, max: null });
     }
 
-    // 3. Récupération des détails de la ville via le endpoint /cities
+    // 3. Récupération des détails de la ville via l'endpoint GET /cities
     const citiesUrl = `https://api-ugi2pflmha-ew.a.run.app/cities?apiKey=${apiKey}`;
     const citiesResponse = await fetch(citiesUrl);
     if (!citiesResponse.ok) {
